@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TripFare — Compare fares & discover your trip</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">✈ TripFare</div>
+    <h1>One journey. More ways to explore.</h1>
+    <p>Compare travel options, then discover what awaits at your destination.</p>
+  </header>
+  <main>
+    <section class="search-panel">
+      <form id="search-form">
+        <div class="route-fields">
+          <div class="field">
+            <label for="origin">From</label>
+            <input id="origin" name="origin" list="origin-cities" placeholder="Start city (e.g. Hyderabad)" autocomplete="off" required>
+            <datalist id="origin-cities"></datalist>
+          </div>
+          <button id="swap-btn" class="swap-button" type="button" aria-label="Swap From and To" title="Swap locations">⇅</button>
+          <div class="field">
+            <label for="destination">To</label>
+            <input id="destination" name="destination" list="destination-cities" placeholder="Destination (e.g. Bengaluru)" autocomplete="off" required>
+            <datalist id="destination-cities"></datalist>
+          </div>
+        </div>
+        <div class="trip-type" role="group" aria-label="Trip type">
+          <label><input type="radio" name="tripType" value="oneway" checked> One-way</label>
+          <label><input type="radio" name="tripType" value="roundtrip"> Round trip</label>
+        </div>
+        <div class="form-bottom">
+          <div class="field">
+            <label for="travelDate">Departure date</label>
+            <input id="travelDate" name="travelDate" type="date" required>
+          </div>
+          <div class="field" id="return-date-field" hidden>
+            <label for="returnDate">Return date</label>
+            <input id="returnDate" name="returnDate" type="date">
+          </div>
+          <div class="field">
+            <label for="adults">Passengers</label>
+            <select id="adults" name="adults">
+              <option value="1">1 passenger</option><option value="2">2 passengers</option>
+              <option value="3">3 passengers</option><option value="4">4 passengers</option>
+              <option value="5">5 passengers</option><option value="6">6 passengers</option>
+              <option value="7">7 passengers</option><option value="8">8 passengers</option>
+              <option value="9">9 passengers</option>
+            </select>
+          </div>
+          <button id="submit-btn" type="submit">Plan my trip ✨</button>
+        </div>
+        <p class="helper-text">Start typing a city to see suggestions from the global city directory.</p>
+      </form>
+    </section>
+    <div id="search-summary" class="search-summary" hidden></div>
+    <div id="message" role="status" class="message" hidden></div>
+    <section id="results" class="results" aria-live="polite"></section>
+    <p class="disclaimer">Prices and availability can change. City suggestions help you find destinations, but live fares depend on the connected provider's route coverage. Verify final fares and booking conditions on the provider's website.</p>
+  </main>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

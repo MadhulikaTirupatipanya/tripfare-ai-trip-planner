@@ -1,0 +1,86 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #172033; background: #f4f6fb;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.hero { padding: 38px 20px 70px; text-align: center; color: white; background: linear-gradient(125deg, #252a64, #6558df); }
+.brand { font-weight: 800; font-size: 18px; letter-spacing: .3px; }
+.hero h1 { margin: 25px 0 10px; font-size: clamp(28px, 4vw, 42px); }
+.hero p { margin: 0; color: #e6e7ff; }
+main { width: min(1180px, 94%); margin: -35px auto 40px; position: relative; }
+.search-panel { padding: 24px; background: white; border-radius: 18px; box-shadow: 0 12px 38px #202b5918; }
+.route-fields { display: grid; grid-template-columns: minmax(0,1fr) 48px minmax(0,1fr); gap: 12px; align-items: end; }
+.field label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+input, select { width: 100%; min-width: 0; border: 1px solid #d7dbea; border-radius: 10px; padding: 13px 11px; font: inherit; background: white; color: #172033; }
+button, .booking-link { border: 0; border-radius: 10px; padding: 14px 18px; font: inherit; font-weight: 750; text-decoration: none; display: inline-block; text-align: center; }
+button { background: #5c52df; color: white; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+.swap-button { height: 46px; padding: 8px; background: #f0efff; color: #4338ca; font-size: 25px; border: 1px solid #dedbff; }
+.trip-type { display: flex; gap: 20px; margin: 20px 0; font-size: 14px; font-weight: 700; }
+.trip-type label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.trip-type input { width: auto; accent-color: #5c52df; }
+.form-bottom { display: grid; grid-template-columns: 1fr 1fr .8fr auto; gap: 14px; align-items: end; }
+.helper-text { margin: 13px 0 0; color: #69738a; font-size: 12px; }
+.search-summary { margin: 25px 0 15px; font-weight: 800; font-size: 20px; }
+.route-arrow { color: #5c52df; }
+.message { margin: 20px 0; padding: 14px; border-radius: 10px; background: #fff3d7; }
+.results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 20px; align-items: stretch; scroll-margin-top: 14px; }
+.card, .adventure-card { background: white; border-radius: 16px; padding: 16px; box-shadow: 0 6px 25px #202b590d; min-width: 0; }
+.card-top { display: flex; gap: 12px; align-items: center; }
+.icon { font-size: 30px; }
+.card h2 { margin: 0; font-size: 18px; }
+.result-card { min-height: 0; }
+.offers-list { max-height: 360px; overflow-y: auto; padding-right: 3px; }
+.offer-title-link { color: #20264b; font-weight: 800; text-decoration: underline; text-decoration-color: #aaa6ef; text-underline-offset: 3px; }
+.offer-title-link:hover, .offer-action:hover { color: #5c52df; }
+.offer-action { display: inline-block; margin-top: 5px; font-size: 12px; font-weight: 800; color: #4f46c8; text-decoration: none; }
+.status { display: inline-block; margin: 18px 0 10px; padding: 6px 10px; border-radius: 99px; font-size: 12px; font-weight: 800; }
+.status.available { background: #dcfce7; color: #166534; }
+.status.not_available { background: #fee2e2; color: #991b1b; }
+.status.not_configured, .status.lookup_error, .status.invalid_route { background: #fef3c7; color: #92400e; }
+.detail { border-top: 1px solid #edf0f5; padding-top: 9px; margin-top: 9px; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.price { font-size: 21px; font-weight: 850; margin: 5px 0; }
+.muted { color: #69738a; font-size: 13px; line-height: 1.55; }
+.booking-link { width: 100%; margin-top: 12px; background: #20264b; color: white; padding: 11px 12px; font-size: 13px; }
+.adventure-card { grid-row: auto; background: linear-gradient(160deg,#fff 0%,#f6f5ff 100%); border: 1px solid #e7e5ff; }
+.adventure-heading > span { color: #5c52df; font-size: 11px; font-weight: 900; letter-spacing: 1.2px; }
+.adventure-heading h2 { margin: 8px 0 5px; font-size: 19px; }
+.adventure-heading p { margin: 0; color: #69738a; font-size: 13px; }
+.route-map { position: relative; padding: 15px 0 10px; }
+.route-end { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
+.endpoint-icon { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; background: #e7e5ff; border-radius: 50%; font-size: 20px; border: 2px solid white; box-shadow: 0 2px 8px #252a641a; }
+.route-end small { display: block; color: #69738a; font-size: 10px; font-weight: 850; letter-spacing: .9px; margin-bottom: 4px; }
+.route-end strong { display: block; overflow-wrap: anywhere; }
+.route-stops { margin: 4px 0 4px 20px; padding: 3px 0 3px 25px; border-left: 3px dashed #8b83f0; }
+.map-stop { position: relative; display: flex; gap: 8px; margin: 9px 0 11px; }
+.map-stop::before { content: ""; position: absolute; left: -42px; top: 10px; width: 13px; height: 13px; background: #5c52df; border: 3px solid #eeedff; border-radius: 50%; }
+.stop-pin { font-size: 20px; flex: 0 0 25px; }
+.map-stop strong { font-size: 14px; }
+.map-stop p { margin: 2px 0 0; font-size: 11px; color: #69738a; line-height: 1.35; }
+.trip-nugget { border-radius: 12px; padding: 11px; background: #efedff; border: 1px solid #e0ddff; }
+.trip-nugget strong { color: #38308c; }
+.trip-nugget p { margin: 5px 0 0; font-size: 12px; line-height: 1.45; }
+.adventure-note { margin-bottom: 0; }
+.disclaimer { color: #667085; font-size: 13px; line-height: 1.6; margin: 25px 2px; }
+[hidden] { display: none !important; }
+@media (max-width: 1050px) {
+  .results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adventure-card { grid-column: 1 / -1; }
+  .form-bottom { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-bottom button { grid-column: 1 / -1; }
+}
+@media (max-width: 680px) {
+  .results { grid-template-columns: 1fr; }
+  .adventure-card { grid-column: auto; }
+  .offers-list { max-height: none; }
+}
+@media (max-width: 560px) {
+  .search-panel { padding: 17px; }
+  .route-fields { grid-template-columns: minmax(0,1fr) 42px minmax(0,1fr); gap: 7px; }
+  .route-fields input { padding: 12px 8px; font-size: 13px; }
+  .swap-button { padding: 5px; }
+  .form-bottom { grid-template-columns: 1fr; }
+  .form-bottom button { grid-column: auto; }
+}
+.fare-link-note { margin: 10px 0 0; font-size: 11px; }
