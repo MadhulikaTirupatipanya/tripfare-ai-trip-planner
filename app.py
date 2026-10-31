@@ -11,8 +11,8 @@ app = Flask(__name__)
 
 SERPAPI_API_KEY = os.getenv("SERPAPI_API_KEY", "").strip()
 
-RAILRADAR_API_KEY = os.getenv("RAILRADAR_API_KEY", "").strip()
-RAILRADAR_BASE_URL = "https://api.railradar.in/v1"
+APIMITRA_API_KEY = os.getenv("APIMITRA_API_KEY", "").strip()
+APIMITRA_BASE_URL = "https://api.apimitra.in"
 
 # Optional partner integrations for authorised train/bus providers.
 TRAIN_API_URL = os.getenv("TRAIN_API_URL", "").strip()
@@ -321,23 +321,11 @@ def search_partner_api(mode, endpoint, api_key, origin, destination, travel_date
 
 
 def search_trains_api(origin, destination, travel_date, adults):
-    """Find trains with RailRadar and fetch indicative fares for a few trains.
-
-    RailRadar's fare endpoint requires a train number, source/destination
-    station codes, journey date, and class code. To conserve the monthly API
-    quota, this requests the route once and fares for at most three trains.
-    """
+    """Search trains with API Mitra and fetch indicative fares when available."""
     origin_key = origin.split(",")[0].strip().casefold()
     destination_key = destination.split(",")[0].strip().casefold()
     origin_code = RAILWAY_STATION_CODES.get(origin_key)
     destination_code = RAILWAY_STATION_CODES.get(destination_key)
-
-    if not RAILRADAR_API_KEY:
-        return {
-            "status": "not_configured",
-            "message": "Add RAILRADAR_API_KEY to your .env file to enable train search.",
-            "offers": [],
-        }
 
     if not origin_code or not destination_code:
         return {
@@ -356,166 +344,201 @@ def search_trains_api(origin, destination, travel_date, adults):
             "offers": [],
         }
 
-    headers = {
-        "Authorization": f"Bearer {RAILRADAR_API_KEY}",
-        "Accept": "application/json",
-    }
+    # API Mitra accepts dates in YYYYMMDD format.
+    api_date = travel_date.replace("-", "")
+    headers = {"Accept": "application/json"}
+    if APIMITRA_API_KEY:
+        headers["x-api-key"] = APIMITRA_API_KEY
 
     try:
         route_response = requests.get(
-            f"{RAILRADAR_BASE_URL}/trains/between/{origin_code}/{destination_code}",
+            f"{APIMITRA_BASE_URL}/train",
             headers=headers,
-            params={"date": travel_date, "live": "false"},
+            params={"from": origin_code, "to": destination_code, "date": api_date},
             timeout=20,
         )
 
         if route_response.status_code in (401, 403):
-            app.logger.warning("RailRadar train lookup authentication failed: HTTP %s", route_response.status_code)
+            app.logger.warning(
+                "API Mitra train lookup authentication failed: HTTP %s",
+                route_response.status_code,
+            )
             return {
                 "status": "not_configured",
-                "message": "RailRadar rejected the API key or this endpoint is not enabled for your plan. Check your RailRadar dashboard.",
+                "message": (
+                    "API Mitra rejected the credentials or access to train search. "
+                    "Check the APIMITRA_API_KEY environment variable and your API access."
+                ),
                 "offers": [],
             }
         if route_response.status_code == 429:
             return {
                 "status": "lookup_error",
-                "message": "RailRadar's monthly or per-minute request limit was reached. Try again later.",
+                "message": "API Mitra's request limit was reached. Please try again later.",
                 "offers": [],
             }
 
         route_response.raise_for_status()
         route_payload = route_response.json()
-        data = route_payload.get("data", route_payload)
 
-        # The API may return a list directly or nest it under one of these keys.
-        trains = data if isinstance(data, list) else (
-            data.get("trains") or data.get("results") or data.get("items") or []
-        )
-
+        # API Mitra documents a top-level "trains" array.
+        trains = route_payload.get("trains", [])
         if not isinstance(trains, list) or not trains:
             return {
                 "status": "not_available",
-                "message": "RailRadar returned no trains for this route. Try another date or a different station.",
+                "message": (
+                    "API Mitra returned no trains for this route and date. "
+                    "Try another date or a different supported station."
+                ),
                 "offers": [],
             }
 
         offers = []
-        # Each fare request consumes quota. Three trains is a deliberate limit.
-        for train in trains[:3]:
+        # Limit fare lookups to three trains to keep API usage modest.
+        for train in trains[:5]:
             if not isinstance(train, dict):
                 continue
 
             number = str(
-                train.get("trainNumber") or train.get("train_number") or
-                train.get("number") or train.get("trainNo") or ""
+                train.get("train_number") or train.get("trainNumber")
+                or train.get("number") or ""
             ).strip()
-            name = str(
-                train.get("trainName") or train.get("train_name") or
-                train.get("name") or "Indian Railways train"
-            ).strip()
-            departure = str(
-                train.get("departureTime") or train.get("departure") or
-                train.get("scheduledDeparture") or train.get("fromTime") or ""
-            )
-            arrival = str(
-                train.get("arrivalTime") or train.get("arrival") or
-                train.get("scheduledArrival") or train.get("toTime") or ""
-            )
-            duration = str(train.get("duration") or train.get("journeyDuration") or "")
-
             if not number:
                 continue
 
+            name = str(
+                train.get("train_name") or train.get("trainName")
+                or train.get("name") or "Indian Railways train"
+            ).strip()
+
+            departure = str(train.get("departure") or train.get("departure_time") or "")
+            arrival = str(train.get("arrival") or train.get("arrival_time") or "")
+            duration = str(train.get("duration") or "")
+
+            # Some responses may provide station objects rather than plain times.
+            if isinstance(train.get("from"), dict) and not departure:
+                departure = str(train["from"].get("departure") or train["from"].get("time") or "")
+            if isinstance(train.get("to"), dict) and not arrival:
+                arrival = str(train["to"].get("arrival") or train["to"].get("time") or "")
+
+            classes = train.get("classes") or train.get("available_classes") or []
             price = None
-            fare_class = "3A"
-            fare_breakdown = {}
-            fare_error = None
+            fare_class = None
+            all_fares = {}
 
             try:
                 fare_response = requests.get(
-                    f"{RAILRADAR_BASE_URL}/trains/{quote_plus(number)}/fare",
+                    f"{APIMITRA_BASE_URL}/train/live",
                     headers=headers,
-                    params={
-                        "source": origin_code,
-                        "destination": destination_code,
-                        "journeyDate": travel_date,
-                        "classCode": fare_class,
-                        "quotaCode": "GN",
-                    },
+                    params={"number": number, "date": api_date},
                     timeout=15,
                 )
-
                 if fare_response.ok:
                     fare_payload = fare_response.json()
                     fare_data = fare_payload.get("data", fare_payload)
-                    breakdown = fare_data.get("breakdown", {}) if isinstance(fare_data, dict) else {}
-                    if isinstance(breakdown, dict):
-                        fare_breakdown = breakdown
-                        price = breakdown.get("totalFare") or breakdown.get("total_fare") or fare_data.get("totalFare")
-                    if price is not None:
-                        try:
-                            price = float(price)
-                        except (TypeError, ValueError):
-                            price = None
+                    fares = fare_data.get("fare", {}) if isinstance(fare_data, dict) else {}
+                    if isinstance(fares, dict):
+                        all_fares = fares
+                        # Prefer common AC classes, then any available positive fare.
+                        for preferred_class in ("3A", "CC", "2A", "SL", "3E", "1A"):
+                            candidate = fares.get(preferred_class)
+                            try:
+                                candidate_value = float(candidate)
+                            except (TypeError, ValueError):
+                                continue
+                            if candidate_value > 0:
+                                price = candidate_value
+                                fare_class = preferred_class
+                                break
+                        if price is None:
+                            for class_name, candidate in fares.items():
+                                try:
+                                    candidate_value = float(candidate)
+                                except (TypeError, ValueError):
+                                    continue
+                                if candidate_value > 0:
+                                    price = candidate_value
+                                    fare_class = str(class_name)
+                                    break
                 else:
-                    fare_error = f"Fare endpoint returned HTTP {fare_response.status_code}"
-                    app.logger.info("RailRadar fare unavailable for train %s: %s", number, fare_error)
+                    app.logger.info(
+                        "API Mitra fare unavailable for train %s: HTTP %s",
+                        number, fare_response.status_code,
+                    )
             except (requests.RequestException, ValueError) as exc:
-                app.logger.info("RailRadar fare lookup failed for train %s: %s", number, type(exc).__name__)
+                app.logger.info(
+                    "API Mitra fare lookup failed for train %s: %s",
+                    number, type(exc).__name__,
+                )
+
+            from_info = train.get("from") if isinstance(train.get("from"), dict) else {}
+            to_info = train.get("to") if isinstance(train.get("to"), dict) else {}
+            if not departure:
+                departure = str(from_info.get("departure") or from_info.get("time") or "")
+            if not arrival:
+                arrival = str(to_info.get("arrival") or to_info.get("time") or "")
 
             offers.append({
-                "provider": "RailRadar / Indian Railways",
+                "provider": "API Mitra / Indian Railways",
                 "name": f"{name} ({number})",
                 "train_number": number,
                 "departure": departure,
                 "arrival": arrival,
                 "duration": duration,
-                "train_type": str(train.get("type") or train.get("trainType") or ""),
-                "classes": train.get("classes") or train.get("availableClasses") or [],
+                "train_type": str(train.get("train_type") or train.get("type") or ""),
+                "classes": classes,
                 "price": price,
                 "currency": "INR",
-                "fare_class": fare_class if price is not None else None,
-                "all_fares": fare_breakdown,
+                "fare_class": fare_class,
+                "all_fares": all_fares,
                 "booking_url": "https://www.irctc.co.in/",
             })
 
         if not offers:
             return {
                 "status": "not_available",
-                "message": "RailRadar returned train records, but no usable train numbers were included.",
+                "message": "API Mitra returned train records without usable train numbers.",
                 "offers": [],
             }
 
         priced_count = sum(1 for offer in offers if offer.get("price") is not None)
         if priced_count:
             message = (
-                f"RailRadar returned {len(offers)} trains and fares for {priced_count}. "
-                "The displayed fare is for 3A (AC 3-tier), General quota; confirm the final fare and availability on IRCTC."
+                f"API Mitra returned {len(offers)} trains and indicative fares for "
+                f"{priced_count}. Confirm the final fare and availability on IRCTC."
             )
         else:
             message = (
-                f"RailRadar returned {len(offers)} trains, but did not return fare amounts for 3A. "
-                "Check your plan's fare access and confirm prices on IRCTC."
+                f"API Mitra returned {len(offers)} trains, but no fare amounts were available. "
+                "Confirm prices and availability on IRCTC."
             )
 
         return {"status": "available", "message": message, "offers": offers}
 
     except requests.Timeout:
-        app.logger.warning("RailRadar train search timed out.")
-        return {"status": "lookup_error", "message": "Train search timed out. Please try again.", "offers": []}
+        app.logger.warning("API Mitra train search timed out.")
+        return {
+            "status": "lookup_error",
+            "message": "Train search timed out. Please try again.",
+            "offers": [],
+        }
     except requests.HTTPError as exc:
         status_code = exc.response.status_code if exc.response is not None else "unknown"
-        app.logger.warning("RailRadar train search failed: HTTP %s", status_code)
+        app.logger.warning("API Mitra train search failed: HTTP %s", status_code)
         if status_code == 404:
-            message = "RailRadar could not find trains for these station codes. Try a different supported city/station."
+            message = "API Mitra could not find trains for these station codes. Try another supported city/station."
         elif status_code == 429:
-            message = "RailRadar's request quota was reached. Try again later."
+            message = "API Mitra's request limit was reached. Try again later."
         else:
-            message = f"RailRadar returned HTTP {status_code}. Check the API key, plan access, and station codes."
+            message = f"API Mitra returned HTTP {status_code}. Check API access and station codes."
         return {"status": "lookup_error", "message": message, "offers": []}
     except (requests.RequestException, ValueError) as exc:
-        app.logger.warning("RailRadar train search error: %s", type(exc).__name__)
-        return {"status": "lookup_error", "message": "Could not retrieve train information from RailRadar.", "offers": []}
+        app.logger.warning("API Mitra train search error: %s", type(exc).__name__)
+        return {
+            "status": "lookup_error",
+            "message": "Could not retrieve train information from API Mitra.",
+            "offers": [],
+        }
 
 
 def google_maps_route(origin, destination):
