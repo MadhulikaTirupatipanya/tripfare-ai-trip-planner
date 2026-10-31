@@ -634,13 +634,10 @@ def fares():
     origin = str(data.get("origin", "")).strip()
     destination = str(data.get("destination", "")).strip()
     travel_date = str(data.get("travelDate", "")).strip()
-    trip_type = str(data.get("tripType", "oneway")).strip().lower()
-    return_date = str(data.get("returnDate", "")).strip()
 
     try:
         adults = int(data.get("adults", 1))
         parsed_date = date.fromisoformat(travel_date)
-        parsed_return_date = date.fromisoformat(return_date) if return_date else None
     except (TypeError, ValueError):
         return jsonify({"error": "Enter a valid date and passenger count."}), 400
 
@@ -650,16 +647,10 @@ def fares():
         return jsonify({"error": "Origin and destination must be different."}), 400
     if adults < 1 or adults > 9:
         return jsonify({"error": "Passenger count must be between 1 and 9."}), 400
-    if trip_type not in ("oneway", "roundtrip"):
-        return jsonify({"error": "Choose one-way or round trip."}), 400
-    if trip_type == "roundtrip" and not parsed_return_date:
-        return jsonify({"error": "Choose a return date for a round trip."}), 400
-    if parsed_return_date and parsed_return_date < parsed_date:
-        return jsonify({"error": "Return date cannot be before the departure date."}), 400
     if parsed_date < date.today():
         return jsonify({"error": "Travel date cannot be in the past."}), 400
 
-    flights = search_flights(origin, destination, travel_date, adults, trip_type, return_date or None)
+    flights = search_flights(origin, destination, travel_date, adults)
     trains = search_trains_api(
                origin, destination, travel_date, adults,
     )
@@ -669,8 +660,6 @@ def fares():
         "origin": origin,
         "destination": destination,
         "travelDate": travel_date,
-        "tripType": trip_type,
-        "returnDate": return_date or None,
         "adults": adults,
         "fares": {
             "flight": flights,
